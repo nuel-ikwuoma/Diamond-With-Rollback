@@ -2,11 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "../contracts/interfaces/IDiamondCut.sol";
+import "../contracts/interfaces/IExample.sol";
 import "../contracts/facets/DiamondCutFacet.sol";
 import "../contracts/facets/DiamondLoupeFacet.sol";
 import "../contracts/facets/OwnershipFacet.sol";
-import "../../lib/forge-std/src/Test.sol";
+import "../contracts/facets/ExampleFacet.sol";
 import "../contracts/Diamond.sol";
+import "forge-std/Test.sol";
 
 contract DiamondDeployer is Test, IDiamondCut {
     //contract types of facets to be deployed
@@ -14,18 +16,20 @@ contract DiamondDeployer is Test, IDiamondCut {
     DiamondCutFacet dCutFacet;
     DiamondLoupeFacet dLoupe;
     OwnershipFacet ownerF;
+    ExampleFacet exampleF;
 
-    function testDeployDiamond() public {
+    function setUp() public {
         //deploy facets
         dCutFacet = new DiamondCutFacet();
         diamond = new Diamond(address(this), address(dCutFacet));
         dLoupe = new DiamondLoupeFacet();
         ownerF = new OwnershipFacet();
+        exampleF = new ExampleFacet();
 
         //upgrade diamond with facets
 
         //build cut struct
-        FacetCut[] memory cut = new FacetCut[](2);
+        FacetCut[] memory cut = new FacetCut[](3);
 
         cut[0] = (
             FacetCut({
@@ -43,11 +47,27 @@ contract DiamondDeployer is Test, IDiamondCut {
             })
         );
 
+        cut[2] = (
+            FacetCut({
+                facetAddress: address(exampleF),
+                action: FacetCutAction.Add,
+                functionSelectors: generateSelectors("ExampleFacet")
+            })
+        );
+
         //upgrade diamond
         IDiamondCut(address(diamond)).diamondCut(cut, address(0x0), "");
 
         //call a function
-        DiamondLoupeFacet(address(diamond)).facetAddresses();
+        // DiamondLoupeFacet(address(diamond)).facetAddresses();
+    }
+
+    function testRollBack() public {
+        IDiamondCut(address(diamond)).rollback();
+        vm.expectRevert("Diamond: Function does not exist");
+        IExample(address(diamond)).func1();
+        vm.expectRevert("Diamond: Function does not exist");
+        IExample(address(diamond)).func2();
     }
 
     function generateSelectors(string memory _facetName)
@@ -67,4 +87,6 @@ contract DiamondDeployer is Test, IDiamondCut {
         address _init,
         bytes calldata _calldata
     ) external override {}
+
+    function rollback() external override {}
 }

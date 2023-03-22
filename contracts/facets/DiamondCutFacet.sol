@@ -10,6 +10,8 @@ import { IDiamondCut } from "../interfaces/IDiamondCut.sol";
 import { LibDiamond } from "../libraries/LibDiamond.sol";
 
 contract DiamondCutFacet is IDiamondCut {
+    error NoRollBackAction();
+    
     /// @notice Add/replace/remove any number of functions and optionally execute
     ///         a function with delegatecall
     /// @param _diamondCut Contains the facet addresses and function selectors
@@ -23,5 +25,39 @@ contract DiamondCutFacet is IDiamondCut {
     ) external override {
         LibDiamond.enforceIsContractOwner();
         LibDiamond.diamondCut(_diamondCut, _init, _calldata);
+    }
+
+    /// @notice Rollback the last action to the diamond
+    function rollback() external override {
+        // enforce is contract owner
+        LibDiamond.enforceIsContractOwner();
+        // LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
+        LibDiamond.RollBackCuts[] storage rollbackCuts = LibDiamond.diamondStorage().rollbackCuts;
+        uint256 rollbackCutsLength = rollbackCuts.length;
+        if(rollbackCutsLength == 0) {
+            revert NoRollBackAction();
+        }
+        LibDiamond.RollBackCuts memory rollbackCut = rollbackCuts[rollbackCutsLength - 1];
+        // remove last rollback action
+        rollbackCuts.pop();
+        uint256 cutLength = rollbackCut.facetAddress.length;
+        IDiamondCut.FacetCut[] memory facetCut = new IDiamondCut.FacetCut[](
+            cutLength
+        );
+        for (uint i = 0; i < cutLength; ++i) {
+            bytes4[] memory rollbackSelector = new bytes4[](1);
+            rollbackSelector[0] = rollbackCut.functionSelectors[i];
+
+            facetCut[i] = IDiamondCut.FacetCut(
+                rollbackCut.facetAddress[i],
+                rollbackCut.action,
+                rollbackSelector
+            );
+        }
+        LibDiamond.diamondCut(
+            facetCut,
+            LibDiamond.ROLLBACK_ADDRESS,
+            ""
+        );
     }
 }

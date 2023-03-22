@@ -16,7 +16,7 @@ contract Diamond {
         LibDiamond.setContractOwner(_contractOwner);
 
         // Add the diamondCut external function from the diamondCutFacet
-        IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](1);
+        IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](2);
         bytes4[] memory functionSelectors = new bytes4[](1);
         functionSelectors[0] = IDiamondCut.diamondCut.selector;
         cut[0] = IDiamondCut.FacetCut({
@@ -24,6 +24,16 @@ contract Diamond {
             action: IDiamondCut.FacetCutAction.Add,
             functionSelectors: functionSelectors
         });
+
+        // Add the rollback extxernal function from the diamondCutFacet
+        bytes4[] memory functionSelectors2 = new bytes4[](1);
+        functionSelectors2[0] = IDiamondCut.rollback.selector;
+        cut[1] = IDiamondCut.FacetCut({
+            facetAddress: _diamondCutFacet,
+            action: IDiamondCut.FacetCutAction.Add,
+            functionSelectors: functionSelectors2
+        });
+
         LibDiamond.diamondCut(cut, address(0), "");
     }
 

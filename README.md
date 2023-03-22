@@ -1,7 +1,8 @@
 [![Mentioned in Awesome Foundry](https://awesome.re/mentioned-badge-flat.svg)](https://github.com/crisgarner/awesome-foundry)
 # Foundry + Hardhat Diamonds
 
-This is a mimimal template for [Diamonds](https://github.com/ethereum/EIPs/issues/2535) which allows facet selectors to be generated on the go in solidity tests!
+This codebase contains a minimal extension to the [Diamonds](https://github.com/ethereum/EIPs/issues/2535) standard, to allow for an upgrade to be rolled-backed.
+The repository was genarated from this [template](https://github.com/Timidan/Foundry-Hardhat-Diamonds).
 
 ## Installation
 
@@ -13,7 +14,7 @@ $ yarn && forge update
 ```
 
 ### Compile
-
+- To compile contracts, run:
 ```bash
 $ npx hardhat compile
 ```
@@ -21,15 +22,14 @@ $ npx hardhat compile
 ## Deployment
 
 ### Hardhat
-
 ```bash
 $ npx hardhat run scripts/deploy.js
 ```
 
 ### Foundry
-
+- To test, run:
 ```bash
-$ forge t
+$ forge test
 ```
 
 `Note`: A lot of improvements are still needed so contributions are welcome!!

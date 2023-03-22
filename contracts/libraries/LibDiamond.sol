@@ -22,6 +22,7 @@ library LibDiamond {
     error EmptyCalldata();
     error InitCallFailed();
     bytes32 constant DIAMOND_STORAGE_POSITION = keccak256("diamond.standard.diamond.storage");
+    address constant ROLLBACK_ADDRESS = 0x000000000000000000000000000000000000bEEF;
 
     struct FacetAddressAndPosition {
         address facetAddress;
@@ -31,6 +32,13 @@ library LibDiamond {
     struct FacetFunctionSelectors {
         bytes4[] functionSelectors;
         uint256 facetAddressPosition; // position of facetAddress in facetAddresses array
+    }
+
+    // struct to hold rollback Ops
+    struct RollBackCuts {
+        address[] facetAddress;
+        IDiamondCut.FacetCutAction action;
+        bytes4[] functionSelectors;
     }
 
     struct DiamondStorage {
@@ -46,6 +54,8 @@ library LibDiamond {
         mapping(bytes4 => bool) supportedInterfaces;
         // owner of the contract
         address contractOwner;
+        // history for rollback
+        RollBackCuts[] rollbackCuts;
     }
 
     function diamondStorage() internal pure returns (DiamondStorage storage ds) {
@@ -83,11 +93,11 @@ library LibDiamond {
         for (uint256 facetIndex; facetIndex < _diamondCut.length; facetIndex++) {
             IDiamondCut.FacetCutAction action = _diamondCut[facetIndex].action;
             if (action == IDiamondCut.FacetCutAction.Add) {
-                addFunctions(_diamondCut[facetIndex].facetAddress, _diamondCut[facetIndex].functionSelectors);
+                addFunctions(_diamondCut[facetIndex].facetAddress, _diamondCut[facetIndex].functionSelectors, _init);
             } else if (action == IDiamondCut.FacetCutAction.Replace) {
-                replaceFunctions(_diamondCut[facetIndex].facetAddress, _diamondCut[facetIndex].functionSelectors);
+                replaceFunctions(_diamondCut[facetIndex].facetAddress, _diamondCut[facetIndex].functionSelectors, _init);
             } else if (action == IDiamondCut.FacetCutAction.Remove) {
-                removeFunctions(_diamondCut[facetIndex].facetAddress, _diamondCut[facetIndex].functionSelectors);
+                removeFunctions(_diamondCut[facetIndex].facetAddress, _diamondCut[facetIndex].functionSelectors, _init);
             } else {
                 revert InValidFacetCutAction();
             }
@@ -96,7 +106,7 @@ library LibDiamond {
         initializeDiamondCut(_init, _calldata);
     }
 
-    function addFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
+    function addFunctions(address _facetAddress, bytes4[] memory _functionSelectors, address _rollbackAddress) internal {
         if (_functionSelectors.length <= 0) revert NoSelectorsInFacet();
         DiamondStorage storage ds = diamondStorage();
         if (_facetAddress == address(0)) revert NoZeroAddress();
@@ -105,6 +115,10 @@ library LibDiamond {
         if (selectorPosition == 0) {
             addFacet(ds, _facetAddress);
         }
+        // empty list of addresses for rollback
+        address[] memory removeAddresses = new address[](
+            _functionSelectors.length
+        );
         for (uint256 selectorIndex; selectorIndex < _functionSelectors.length; selectorIndex++) {
             bytes4 selector = _functionSelectors[selectorIndex];
             address oldFacetAddress = ds.selectorToFacetAndPosition[selector].facetAddress;
@@ -112,9 +126,20 @@ library LibDiamond {
             addFunction(ds, selector, selectorPosition, _facetAddress);
             selectorPosition++;
         }
+        if (
+            _rollbackAddress != ROLLBACK_ADDRESS
+        ) {
+            diamondStorage().rollbackCuts.push(
+                RollBackCuts(
+                    removeAddresses,
+                    IDiamondCut.FacetCutAction.Remove,
+                    _functionSelectors
+                )
+            );
+        }
     }
 
-    function replaceFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
+    function replaceFunctions(address _facetAddress, bytes4[] memory _functionSelectors, address _rollbackAddress) internal {
         if (_functionSelectors.length <= 0) revert NoSelectorsInFacet();
         DiamondStorage storage ds = diamondStorage();
         if (_facetAddress == address(0)) revert NoZeroAddress();
@@ -123,25 +148,58 @@ library LibDiamond {
         if (selectorPosition == 0) {
             addFacet(ds, _facetAddress);
         }
+        // addresses to replace selectors with on rollback
+        address[] memory replaceAddresses = new address[](
+            _functionSelectors.length
+        );
         for (uint256 selectorIndex; selectorIndex < _functionSelectors.length; selectorIndex++) {
             bytes4 selector = _functionSelectors[selectorIndex];
             address oldFacetAddress = ds.selectorToFacetAndPosition[selector].facetAddress;
             if (oldFacetAddress == _facetAddress) revert SameSelectorReplacement(selector);
+            replaceAddresses[selectorIndex] = oldFacetAddress;
             removeFunction(ds, oldFacetAddress, selector);
             addFunction(ds, selector, selectorPosition, _facetAddress);
             selectorPosition++;
         }
+        // add 'oldFacetAddress' to redo the cut
+        if (
+            _rollbackAddress != ROLLBACK_ADDRESS
+        ) {
+            diamondStorage().rollbackCuts.push(
+                RollBackCuts(
+                    replaceAddresses,
+                    IDiamondCut.FacetCutAction.Replace,
+                    _functionSelectors
+                )
+            );
+        }
     }
 
-    function removeFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
+    function removeFunctions(address _facetAddress, bytes4[] memory _functionSelectors, address _rollbackAddress) internal {
         if (_functionSelectors.length <= 0) revert NoSelectorsInFacet();
         DiamondStorage storage ds = diamondStorage();
         // if function does not exist then do nothing and return
         if (_facetAddress != address(0)) revert MustBeZeroAddress();
+        // addresses to add to selectors on rollback
+        address[] memory addAddresses = new address[](
+            _functionSelectors.length
+        );
         for (uint256 selectorIndex; selectorIndex < _functionSelectors.length; selectorIndex++) {
             bytes4 selector = _functionSelectors[selectorIndex];
             address oldFacetAddress = ds.selectorToFacetAndPosition[selector].facetAddress;
+            addAddresses[selectorIndex] = oldFacetAddress;
             removeFunction(ds, oldFacetAddress, selector);
+        }
+        if (
+            _rollbackAddress != ROLLBACK_ADDRESS
+        ) {
+            diamondStorage().rollbackCuts.push(
+                RollBackCuts(
+                    addAddresses,
+                    IDiamondCut.FacetCutAction.Add,
+                    _functionSelectors
+                )
+            );
         }
     }
 
@@ -199,7 +257,7 @@ library LibDiamond {
     }
 
     function initializeDiamondCut(address _init, bytes memory _calldata) internal {
-        if (_init == address(0)) {
+        if (_init == address(0) || _init == ROLLBACK_ADDRESS) {
             if (_calldata.length > 0) revert NonEmptyCalldata();
         } else {
             if (_calldata.length == 0) revert EmptyCalldata();

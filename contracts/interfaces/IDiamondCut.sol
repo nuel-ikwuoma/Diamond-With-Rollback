@@ -28,5 +28,8 @@ interface IDiamondCut {
         bytes calldata _calldata
     ) external;
 
+    /// @notice Rollback the last action to the diamond.
+    function rollback() external;
+
     event DiamondCut(FacetCut[] _diamondCut, address _init, bytes _calldata);
 }
