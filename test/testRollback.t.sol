@@ -62,6 +62,13 @@ contract DiamondDeployer is Test, IDiamondCut {
         // DiamondLoupeFacet(address(diamond)).facetAddresses();
     }
 
+    function testCallFunction() public {
+        uint256 one = IExample(address(diamond)).func1();
+        uint256 two = IExample(address(diamond)).func2();
+        assertEq(one, 1);
+        assertEq(two, 2);
+    }
+
     function testRollBack() public {
         IDiamondCut(address(diamond)).rollback();
         vm.expectRevert("Diamond: Function does not exist");

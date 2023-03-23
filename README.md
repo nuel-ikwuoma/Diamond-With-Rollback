@@ -1,7 +1,7 @@
 [![Mentioned in Awesome Foundry](https://awesome.re/mentioned-badge-flat.svg)](https://github.com/crisgarner/awesome-foundry)
 # Foundry + Hardhat Diamonds
 
-This codebase contains a minimal extension to the [Diamonds](https://github.com/ethereum/EIPs/issues/2535) standard, to allow for an upgrade to be rolled-backed.
+This codebase contains a minimal extension to the [Diamonds](https://github.com/ethereum/EIPs/issues/2535) standard, to allow for Diamond upgrades to be rolled-backed.
 The repository was genarated from this [template](https://github.com/Timidan/Foundry-Hardhat-Diamonds).
 
 ## Installation
