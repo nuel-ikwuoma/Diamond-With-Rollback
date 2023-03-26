@@ -34,7 +34,8 @@ contract DiamondCutFacet is IDiamondCut {
         // LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         LibDiamond.RollBackCuts[] storage rollbackCuts = LibDiamond.diamondStorage().rollbackCuts;
         uint256 rollbackCutsLength = rollbackCuts.length;
-        if(rollbackCutsLength == 0) {
+        // stop rollback at 1, to always keep the diamondCut and rollback functions
+        if(rollbackCutsLength == 1) {
             revert NoRollBackAction();
         }
         LibDiamond.RollBackCuts memory rollbackCut = rollbackCuts[rollbackCutsLength - 1];

@@ -26,15 +26,6 @@ contract Diamond {
             functionSelectors: functionSelectors
         });
 
-        // Add the rollback extxernal function from the diamondCutFacet
-        // bytes4[] memory functionSelectors2 = new bytes4[](1);
-        // functionSelectors2[0] = IDiamondCut.rollback.selector;
-        // cut[1] = IDiamondCut.FacetCut({
-        //     facetAddress: _diamondCutFacet,
-        //     action: IDiamondCut.FacetCutAction.Add,
-        //     functionSelectors: functionSelectors2
-        // });
-
         LibDiamond.diamondCut(cut, address(0), "");
     }
 

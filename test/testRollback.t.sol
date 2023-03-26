@@ -77,6 +77,17 @@ contract DiamondDeployer is Test, IDiamondCut {
         IExample(address(diamond)).func2();
     }
 
+    function testLastCut() public {
+        for(uint i; i < 3; i++) {
+            IDiamondCut(address(diamond)).rollback();
+        }
+
+        // 0x0997a2cf is sig for error NoRollBackAction().
+        // cut to methods added in Diamond constructor should fail.
+        vm.expectRevert(0x0997a2cf);
+        IDiamondCut(address(diamond)).rollback();
+    }
+
     function generateSelectors(string memory _facetName)
         internal
         returns (bytes4[] memory selectors)
